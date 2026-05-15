@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Security Infrastructure</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap">
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+        html { scroll-behavior: smooth; }
+
+        :root {
+            --canvas: #121418;
+            --stage: #0a0a0c;
+            --text: #ffffff;
+            --text-muted: #9ca3af;
+            --accent: #FC4C02;
+            --accent-bg: rgba(252, 76, 2, 0.1);
+            --surface: #1a1e24;
+            --surface-border: #333333;
+            --font-display: 'Space Grotesk', 'Noto Sans SC', sans-serif;
+            --font-body: 'Inter', 'Noto Sans SC', sans-serif;
+        }
+
+        body { background: var(--stage); color: var(--text); font-family: var(--font-body); }
+
+        .slide {
+            width: 100vw; height: 100vh; height: 100dvh;
+            position: fixed; inset: 0; display: flex;
+            align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+
+        .slide.active {
+            opacity: 1; pointer-events: auto;
+        }
+
+        .slide-inner {
+            width: 1280px; height: 720px;
+            box-sizing: border-box;
+            flex-shrink: 0;
+            position: relative;
+            transform-origin: center center;
+            display: flex; flex-direction: column;
+            padding: 40px 48px;
+            background: var(--canvas);
+            border: 1px solid #222;
+            overflow: hidden;
+        }
+
+        .slide-inner::after {
+            content: ''; position: absolute; top: 0; right: 0; width: 400px; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(252, 76, 2, 0.03));
+            pointer-events: none; z-index: 0;
+        }
+
+        .slide-content {
+            flex: 1; display: flex; flex-direction: column;
+            justify-content: center;
+            position: relative; z-index: 2;
+        }
+
+        h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; margin-bottom: 16px; line-height: 1.2; letter-spacing: -0.5px; }
+        h1 { font-size: 64px; letter-spacing: -1.5px; margin-bottom: 24px; color: #fff; }
+        h2 { font-size: 40px; color: #fff; margin-bottom: 24px; }
+        h3 { font-size: 24px; color: #fff; margin-bottom: 12px; }
+        h4 { font-size: 18px; color: #fff; margin-bottom: 8px; }
+        p { font-size: 18px; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px; }
+        ul { font-size: 18px; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px; }
+        strong { color: #fff; font-weight: 600; }
+        i, em, cite, address, dfn, var { font-style: normal; }
+
+        .tag {
+            display: inline-block; align-self: flex-start; width: fit-content; padding: 6px 14px; background: var(--accent-bg); color: var(--accent);
+            border-radius: 4px; font-family: var(--font-display); font-size: 14px; letter-spacing: 1px;
+            text-transform: uppercase; margin-bottom: 20px; font-weight: 700;
+        }
+
+        .split-layout { display: flex; gap: 48px; }
+        .col { flex: 1; display: flex; flex-direction: column; }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+
+        .card {
+            background: var(--surface); border: 1px solid var(--surface-border);
+            border-radius: 8px; padding: 16px; position: relative;
+        }
+        .card-icon {
+            width: 28px; height: 28px; border-radius: 4px; background: var(--accent); color: #fff;
+            display: flex; align-items: center; justify-content: center; font-family: var(--font-display);
+            font-weight: 700; margin-bottom: 12px; font-size: 14px;
+        }
+
+        .list-styled { list-style: none; padding: 0; }
+        .list-styled li { position: relative; padding-left: 24px; margin-bottom: 12px; }
+        .list-styled li::before {
+            content: '->'; position: absolute; left: 0; top: 0; color: var(--accent);
+            font-family: var(--font-display); font-weight: 700;
+        }
+
+        .flow-chart { background: rgba(26,30,36,0.8); padding: 32px; border-radius: 8px; border: 1px solid var(--surface-border); text-align: center; }
+        .flow-row { display: flex; justify-content: center; gap: 32px; }
+        .flow-box {
+            background: #2a303c; border: 1px solid #444; padding: 16px 24px; border-radius: 6px;
+            font-family: var(--font-display); font-weight: 700; font-size: 18px; min-width: 180px; color: #fff;
+        }
+        .flow-box.user, .flow-box.agent { border-top: 3px solid #3b82f6; }
+        .flow-box.gateway {
+            border-left: 3px solid var(--accent); background: rgba(252,76,2,0.1);
+            border-color: rgba(252,76,2,0.3); color: var(--accent); margin: 24px auto; max-width: 300px;
+        }
+        .flow-box.policy, .flow-box.vault { border-top: 3px solid #10b981; }
+        .flow-box.resource { border-top: 3px solid #8b5cf6; margin: 24px auto 0; max-width: 300px; }
+        .flow-arrow { font-size: 14px; color: var(--text-muted); margin: 8px 0; letter-spacing: 2px; text-transform: uppercase; font-family: var(--font-body); font-weight: 600; }
+
+        .thesis { font-size: 22px; color: #fff; background: rgba(255,255,255,0.05); padding: 20px; border-left: 4px solid var(--accent); border-radius: 0 4px 4px 0; }
+        .eyebrow-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+        .mini-pill {
+            display: inline-flex; align-items: center; gap: 8px;
+            color: #fff; background: rgba(255,255,255,0.06); border: 1px solid #2f353f;
+            border-radius: 6px; padding: 8px 10px; font-size: 14px; font-weight: 600;
+        }
+        .mini-pill::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+        .compact-card { padding: 14px 16px; }
+        .compact-card p { font-size: 15px; margin-bottom: 0; }
+        .compact-card h4 { font-size: 17px; margin-bottom: 7px; }
+        .timeline {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 24px;
+        }
+        .timeline .card { border-top: 3px solid var(--accent); min-height: 132px; }
+        .metric-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 22px; }
+        .metric {
+            background: rgba(252,76,2,0.09); border: 1px solid rgba(252,76,2,0.28);
+            border-radius: 8px; padding: 14px;
+        }
+        .metric strong { display: block; color: var(--accent); font-family: var(--font-display); font-size: 24px; margin-bottom: 2px; }
+        .metric span { color: var(--text-muted); font-size: 14px; line-height: 1.35; }
+        .two-column-panel {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: stretch;
+        }
+        .panel-title {
+            color: var(--accent); font-size: 18px; margin-bottom: 12px; text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+        .thank-you-slide {
+            background:
+                linear-gradient(120deg, rgba(18,20,24,0.94), rgba(18,20,24,0.78)),
+                radial-gradient(circle at 76% 22%, rgba(252,76,2,0.22), transparent 32%),
+                radial-gradient(circle at 26% 78%, rgba(59,130,246,0.16), transparent 34%),
+                var(--canvas);
+        }
+        .references { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 28px; }
+        .reference {
+            background: rgba(255,255,255,0.05); border: 1px solid #303640; border-radius: 8px;
+            padding: 14px 16px;
+        }
+        .reference h4 { color: #fff; font-size: 16px; margin-bottom: 5px; }
+        .reference p { font-size: 14px; margin-bottom: 0; }
+        .architecture-image-wrap {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+        }
+        .architecture-image {
+            width: 100%;
+            max-height: 560px;
+            object-fit: contain;
+            border-radius: 8px;
+            border: 1px solid rgba(59,130,246,0.35);
+            box-shadow: 0 24px 70px rgba(0,0,0,0.42);
+            background: #040817;
+            cursor: zoom-in;
+        }
+        .image-zoom {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 28px;
+            background: rgba(3, 6, 18, 0.92);
+            backdrop-filter: blur(10px);
+        }
+        .image-zoom.open { display: flex; }
+        .image-zoom img {
+            max-width: min(96vw, 1680px);
+            max-height: 92vh;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 28px 90px rgba(0,0,0,0.62);
+            cursor: zoom-out;
+        }
+        .image-zoom-hint {
+            position: absolute;
+            left: 50%;
+            bottom: 18px;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.68);
+            font-size: 13px;
+            pointer-events: none;
+        }
+        .missing-asset {
+            display: none;
+            width: 100%;
+            min-height: 280px;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: var(--text-muted);
+            background: rgba(0,0,0,0.32);
+            border: 1px dashed rgba(252,76,2,0.45);
+            border-radius: 8px;
+            padding: 24px;
+            box-sizing: border-box;
+        }
+        .missing-asset strong { display: block; margin-bottom: 8px; color: var(--accent); }
+
+        .cover-slide {
+            border: none;
+            background:
+                linear-gradient(90deg, #121418 20%, rgba(18,20,24,0.84) 66%, rgba(18,20,24,0.72)),
+                radial-gradient(circle at 78% 48%, rgba(252,76,2,0.2), transparent 32%),
+                var(--canvas);
+        }
+
+        .architecture-slide {
+            background:
+                radial-gradient(circle at 50% 28%, rgba(252,76,2,0.12), transparent 34%),
+                radial-gradient(circle at 72% 58%, rgba(59,130,246,0.10), transparent 32%),
+                var(--canvas);
+        }
+
+        .architecture-slide .slide-content {
+            justify-content: flex-start;
+            padding-top: 96px;
+        }
+
+        .architecture-slide h2 {
+            margin-bottom: 18px;
+        }
+
+        .architecture-slide .flow-chart {
+            padding: 22px 28px;
+        }
+
+        .architecture-slide .flow-box {
+            padding: 12px 20px;
+        }
+
+        .architecture-slide .flow-box.gateway {
+            margin: 16px auto;
+        }
+
+        .architecture-slide .flow-box.resource {
+            margin-top: 16px;
+        }
+
+        .architecture-slide .flow-arrow {
+            margin: 6px 0;
+        }
+
+        img, .image-container { max-width: 100%; max-height: 400px; object-fit: contain; }
+
+        .nav-dots {
+            position: fixed; right: 24px; top: 50%; transform: translateY(-50%);
+            display: flex; flex-direction: column; gap: 10px; z-index: 100;
+        }
+        .dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: rgba(128,128,128,0.3); cursor: pointer; transition: all 0.3s;
+        }
+        .dot.active { background: var(--accent); transform: scale(1.3); }
+
+        .keyboard-hint {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+            font-size: 13px; color: rgba(128,128,128,0.5); z-index: 100;
+            transition: opacity 0.5s; pointer-events: none;
+            font-family: var(--font-body);
+        }
+
+        .reveal { opacity: 0; transform: translateY(30px); transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+        .slide.visible .reveal { opacity: 1; transform: translateY(0); }
+        .reveal:nth-child(1) { transition-delay: 0.1s; }
+        .reveal:nth-child(2) { transition-delay: 0.2s; }
+        .reveal:nth-child(3) { transition-delay: 0.3s; }
+        .reveal:nth-child(4) { transition-delay: 0.4s; }
+
+        .reveal-scale { opacity: 0; transform: scale(0.95); transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+        .slide.visible .reveal-scale { opacity: 1; transform: scale(1); }
+
+        html.is-mobile, html.is-mobile body { height: auto; overflow-x: hidden; }
+        html.is-mobile { scroll-snap-type: none; }
+        html.is-mobile .slide {
+            width: 100vw; display: block; overflow: hidden; position: relative;
+            margin: 0 0 16px 0; box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+        }
+        html.is-mobile .slide:last-child { margin-bottom: 0; }
+        html.is-mobile .slide-inner { transform-origin: top left; position: absolute; top: 0; left: 0; }
+        html.is-mobile .nav-dots, html.is-mobile .keyboard-hint { display: none; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
+            html { scroll-behavior: auto; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-dots"></nav>
+
+    <!-- Slide 1: Cover -->
+    <section class="slide" id="slide-1">
+        <div class="slide-inner">
+            <div class="slide-content" style="width: 86%;">
+                <div class="tag reveal" contenteditable="true">Technical Challenge</div>
+                <h1 class="reveal" contenteditable="true" style="font-size: 56px;">Agent Security Infrastructure</h1>
+                <p class="reveal" contenteditable="true" style="font-size: 24px; color: #fff; white-space: nowrap;">Agent Identity, delegated authorization, credential safety, and auditability.</p>
+                <div class="reveal" style="margin-top: 40px; display: flex; gap: 40px;">
+                    <div style="border-left: 4px solid var(--accent); padding-left: 16px;">
+                        <p style="font-size: 18px; color: #fff; margin-bottom: 4px; font-weight: 600;" contenteditable="true">Yan Cao</p>
+                        <p style="font-size: 16px; color: var(--text-muted); margin-bottom: 0;" contenteditable="true">Engineering Manager, Identity & Security Platform</p>
+                    </div>
+                    <div>
+                        <p style="font-size: 16px; color: #fff; margin-bottom: 4px; font-weight: 600;" contenteditable="true">Presentation Structure</p>
+                        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 0; line-height: 1.5;" contenteditable="true">Context, roadmap, XFN & execution<br>Architecture, scale, reliability & lessons</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 2: Why Agent Security Became A Platform Problem -->
+    <section class="slide" id="slide-2">
+        <div class="slide-inner">
+            <div class="slide-content">
+                <h2 class="reveal" contenteditable="true" style="margin-bottom: 12px;">Why Agent Security Became A Platform Problem</h2>
+                <div class="split-layout" style="gap: 24px;">
+                    <div class="col left reveal">
+                        <p class="thesis" contenteditable="true" style="font-size: 15px; padding: 12px 16px; margin-bottom: 16px;"><strong contenteditable="true">What We Did:</strong> Built a reusable foundation for production AI agents: agents get identities, users delegate work, tool access is authorized, credentials managed via Vault, and the User -> Agent -> Resource chain is auditable.</p>
+                        <div style="margin-top: 12px;">
+                            <h4 contenteditable="true" style="color: var(--accent); font-size: 16px;">Why Now</h4>
+                            <ul class="list-styled" style="font-size: 14px; margin-bottom: 16px;">
+                                <li contenteditable="true">Agents autonomously calling MCP, internal APIs, and 3rd-party resources.</li>
+                                <li contenteditable="true">Agent adoption reached production scale across multiple runtimes.</li>
+                                <li contenteditable="true">Legacy IAM (users/services) not built for delegation or dynamic tools.</li>
+                            </ul>
+                        </div>
+                        <div style="margin-top: 12px;">
+                            <h4 contenteditable="true" style="color: var(--accent); font-size: 16px;">My Role (Senior EM)</h4>
+                            <ul class="list-styled" style="font-size: 14px; margin-bottom: 0;">
+                                <li contenteditable="true">Accountable for platform architecture direction; 30-person XFN effort.</li>
+                                <li contenteditable="true">Defined trust boundaries, ownership, and aligned 15+ XFN partners.</li>
+                                <li contenteditable="true">Owned Identity across human, service, and agent domains, plus Token Vault.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col right reveal" style="transition-delay: 0.2s;">
+                        <h4 contenteditable="true" style="color: var(--accent); margin-bottom: 12px; font-size: 16px;">Our Solutions</h4>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div class="card" style="padding: 10px 14px;">
+                                <h4 contenteditable="true" style="font-size: 15px; margin-bottom: 4px;">Identity Delegation Confusion -> First-class Agent Identity</h4>
+                                <p style="font-size: 13px; margin-bottom: 0;" contenteditable="true">Give agents independent first-class identities and natively support a trusted Human -> Agent delegation chain on top of unified identity.</p>
+                            </div>
+                            <div class="card" style="padding: 10px 14px;">
+                                <h4 contenteditable="true" style="font-size: 15px; margin-bottom: 4px;">Permission Overreach -> Dynamic & Fine-Grained AuthZ</h4>
+                                <p style="font-size: 13px; margin-bottom: 0;" contenteditable="true">Context-aware permission model reaches the tool / data-domain level.</p>
+                            </div>
+                            <div class="card" style="padding: 10px 14px;">
+                                <h4 contenteditable="true" style="font-size: 15px; margin-bottom: 4px;">Credential Leakage -> Centralized Custody</h4>
+                                <p style="font-size: 13px; margin-bottom: 0;" contenteditable="true">Outbound tokens go through Token Vault; short-lived scoped credentials.</p>
+                            </div>
+                            <div class="card" style="padding: 10px 14px;">
+                                <h4 contenteditable="true" style="font-size: 15px; margin-bottom: 4px;">Poor Traceability -> Full-Chain Audit</h4>
+                                <p style="font-size: 13px; margin-bottom: 0;" contenteditable="true">User -> Agent -> Resource path is traceable for accountability and compliance.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 3: How We Got It Done -->
+    <section class="slide" id="slide-3">
+        <div class="slide-inner">
+            <div class="slide-content">
+                <h2 class="reveal" contenteditable="true">How We Got It Done</h2>
+                <div class="grid-3" style="margin-top: 16px;">
+                    <div class="card reveal-scale" style="transition-delay: 0.1s;">
+                        <h3 contenteditable="true" style="font-size: 20px; color: var(--accent);">Roadmap Direction</h3>
+                        <ul class="list-styled" style="font-size: 14px; margin-bottom: 16px;">
+                            <li contenteditable="true">Internal AI Infra and Agent Developers</li>
+                            <li contenteditable="true">Public Cloud for Serve ToB customers</li>
+                        </ul>
+                        <div style="height: 1px; background: #333; margin: 16px 0;"></div>
+                        <h3 contenteditable="true" style="font-size: 20px; color: var(--accent);">Ownership Map</h3>
+                        <ul class="list-styled" style="font-size: 14px; margin-bottom: 0;">
+                            <li contenteditable="true"><strong contenteditable="true">Direct Report Team:</strong> Identity (Human, Service, Agent) & Token Vault.</li>
+                            <li contenteditable="true"><strong contenteditable="true">Peer Engineering Team:</strong> AuthZ & Gateway.</li>
+                            <li contenteditable="true"><strong contenteditable="true">Close XFN:</strong> SRE / QA / frontend / design / TPM / PM.</li>
+                            <li contenteditable="true"><strong contenteditable="true">Extended XFN:</strong> ToB Sales, internal & external cloud infra, security partners, PR / Legal / Privacy.</li>
+                        </ul>
+                    </div>
+                    <div class="card reveal-scale" style="transition-delay: 0.2s;">
+                        <h3 contenteditable="true" style="font-size: 20px; color: var(--accent);">Operating Model</h3>
+                        <ul class="list-styled" style="font-size: 13px; line-height: 1.38; margin-bottom: 0;">
+                            <li contenteditable="true"><strong contenteditable="true">Strategy and success criteria:</strong> Agent Identity as a default security foundation.</li>
+                            <li contenteditable="true"><strong contenteditable="true">Ownership and accountability:</strong> clear owners across identity, AuthZ, vault, gateway, SRE/QA, PM, and TPM.</li>
+                            <li contenteditable="true"><strong contenteditable="true">Architecture decision process:</strong> irreversible contracts first: namespace, delegation, credentials, policy, and audit.</li>
+                            <li contenteditable="true"><strong contenteditable="true">Execution rhythm:</strong> TPM tracking, EM/TL reviews, PM prioritization, and launch readiness.</li>
+                            <li contenteditable="true"><strong contenteditable="true">Learning loop:</strong> H2 retro actions on cadence, ownership, dependencies, freeze, intake, and stability drills.</li>
+                        </ul>
+                    </div>
+                    <div class="card reveal-scale" style="transition-delay: 0.3s; background: rgba(252, 76, 2, 0.05); border-color: rgba(252, 76, 2, 0.2);">
+                        <h3 contenteditable="true" style="font-size: 20px; color: var(--accent);">Key Tradeoff</h3>
+                        <p contenteditable="true" style="font-size: 14px; margin-bottom: 16px;">Avoided a one-off feature for one platform. Goal was a <strong contenteditable="true">reusable trust foundation</strong>.</p>
+                        <div style="height: 1px; background: rgba(252, 76, 2, 0.2); margin: 16px 0;"></div>
+                        <h3 contenteditable="true" style="font-size: 20px; color: var(--accent);">Stumbling Block</h3>
+                        <p contenteditable="true" style="font-size: 14px; margin-bottom: 8px;">Shifted to OpenClaw ecosystem integration (skills/hooks) without losing core runtime control.</p>
+                        <p contenteditable="true" style="font-size: 14px; margin-bottom: 0;">Shipped OpenClaw path quickly, but kept identity, delegation & audit as reusable contracts.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide 4: Architecture -->
+    <section class="slide" id="slide-4">
+        <div class="slide-inner">
+            <div class="slide-content" style="align-items: flex-start; justify-content: flex-start; padding-top: 0;">
+                <h2 class="reveal" contenteditable="true" style="margin-bottom: 16px;">Technical Architecture And Trust Boundary</h2>
+                <div class="reveal" style="width: 100%; display: flex; justify-content: center; align-items: center; margin-bottom: 16px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid var(--surface-border); padding: 12px;">
+                    <img class="zoomable-image" src="assets/technical-architecture.png" alt="Architecture Diagram" style="max-height: 280px; object-fit: contain; width: auto; border-radius: 4px; cursor: zoom-in;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="missing-asset">
+                        <span><strong>Missing architecture image</strong>Save the provided diagram as assets/technical-architecture.png</span>
+                    </div>
+                </div>
+                <div class="split-layout reveal" style="transition-delay: 0.2s; gap: 20px; width: 100%;">
+                    <div class="col" style="flex: 1;">
+                        <ul class="list-styled" style="font-size: 13px; margin-bottom: 0;">
+                            <li contenteditable="true"><strong contenteditable="true">Federated User Identity:</strong> Enterprise/3rd-party IdP federates into UserPool.</li>
+                            <li contenteditable="true"><strong contenteditable="true">Agent Identity:</strong> First-class identities, no user/service account impersonation.</li>
+                            <li contenteditable="true"><strong contenteditable="true">Delegation (TIP):</strong> Trusted Identity Propagation carries user + agent context.</li>
+                        </ul>
+                    </div>
+                    <div class="col" style="flex: 1;">
+                        <ul class="list-styled" style="font-size: 13px; margin-bottom: 0;">
+                            <li contenteditable="true"><strong contenteditable="true">Permission Management:</strong> Authorize by trust chain + resource/action/context.</li>
+                            <li contenteditable="true"><strong contenteditable="true">Credential Mgmt:</strong> Centralized OAuth, API keys, cookies.</li>
+                            <li contenteditable="true"><strong contenteditable="true">Inbound/Outbound Control:</strong> Gateway enforces rules directly on the traffic path.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="reveal" style="transition-delay: 0.3s; margin-top: 12px; font-size: 13px; color: var(--accent); padding: 8px 16px; background: var(--accent-bg); border-radius: 4px; display: inline-block;">
+                    <strong contenteditable="true">Important distinction:</strong> Inbound = "Who can call this agent?" | Outbound = "What can this agent do?" - Outbound control is where most damage is stopped.
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide #5: Results & Learnings -->
+    <section class="slide" id="slide-5">
+        <div class="slide-inner">
+            <div class="slide-content">
+                <h2 class="reveal" contenteditable="true">Results & Learnings</h2>
+                <div class="grid-2" style="margin-top: 16px;">
+                    <div class="col reveal card">
+                        <h3 contenteditable="true" style="font-size: 20px; color: var(--accent); border-bottom: 1px solid #333; padding-bottom: 12px;">Results</h3>
+                        <ul class="list-styled" style="font-size: 14px; margin-top: 16px; margin-bottom: 0;">
+                            <li contenteditable="true">Shared model for agent identity, delegation, permissions, vaulting, and audit.</li>
+                            <li contenteditable="true">Integrated MCP/tool ecosystems, OpenClaw-style agents & cloud surfaces.</li>
+                            <li contenteditable="true">Aligned 9+ functions around one trust foundation.</li>
+                            <li contenteditable="true">Enterprise POCs (50K+ employees) & production readiness (multi-AZ, rate limits).</li>
+                        </ul>
+                    </div>
+                    <div class="col reveal card" style="transition-delay: 0.2s;">
+                        <h3 contenteditable="true" style="font-size: 20px; color: var(--accent); border-bottom: 1px solid #333; padding-bottom: 12px;">Lessons Learned</h3>
+                        <ul class="list-styled" style="font-size: 14px; margin-top: 16px; margin-bottom: 0;">
+                            <li contenteditable="true">Platform path is mandatory; SDK-only controls are too easy to bypass.</li>
+                            <li contenteditable="true">Identity semantics must be unified early before platforms invent their own.</li>
+                            <li contenteditable="true">Product adoption requires reducing developer burden, not just adding gates.</li>
+                            <li contenteditable="true">EM challenge: balance platform coherence with urgent customer asks.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Slide #6: Thank You -->
+    <section class="slide" id="slide-6">
+        <div class="slide-inner">
+            <div class="slide-content" style="align-items: center; text-align: center;">
+                <h2 class="reveal" contenteditable="true" style="font-size: 56px; margin-bottom: 24px;">Thank You</h2>
+                <p class="reveal" contenteditable="true" style="max-width: 800px; margin-bottom: 48px; font-size: 18px;">
+                    Happy to go deeper into the technical architecture, rollout strategy, cross-functional execution model, or the tradeoffs between reusable platform foundation and OpenClaw-specific integration.
+                </p>
+                <div class="reveal card" style="width: 100%; max-width: 900px; text-align: left; padding: 0; overflow: hidden; transition-delay: 0.2s;">
+                    <div style="background: rgba(255,255,255,0.05); padding: 10px 18px; border-bottom: 1px solid #333;">
+                        <h3 contenteditable="true" style="margin: 0; font-size: 17px;">Learn More</h3>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12.5px;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid #333; background: rgba(0,0,0,0.2);">
+                                <th style="padding: 8px 18px; text-align: left; color: var(--accent); font-family: var(--font-display);">Link</th>
+                                <th style="padding: 8px 18px; text-align: left; color: var(--accent); font-family: var(--font-display);">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid #222;">
+                                <td style="padding: 10px 18px; vertical-align: top;"><a href="https://yan.cao.engineer/" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; text-decoration: none;">Yan Cao personal website</a></td>
+                                <td style="padding: 10px 18px; color: var(--text-muted);" contenteditable="true">Personal website for additional background and public profile.</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #222;">
+                                <td style="padding: 10px 18px; vertical-align: top;"><a href="https://clawhub.ai/plugins/@m1a0rz/agent-identity" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; text-decoration: none;">ClawHub Agent Identity plugin</a></td>
+                                <td style="padding: 10px 18px; color: var(--text-muted);" contenteditable="true">Our OpenClaw skill in ClawHub, showing the public integration surface for agent identity.</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 10px 18px; vertical-align: top;"><a href="https://www.volcengine.com/live/activity/webinar-20260120" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; text-decoration: none;">Volcengine public webinar / product demo</a></td>
+                                <td style="padding: 10px 18px; color: var(--text-muted);" contenteditable="true">Public presentation and demo used to promote our product externally.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="image-zoom" id="image-zoom" aria-hidden="true">
+        <img src="assets/technical-architecture.png" alt="Architecture Diagram enlarged">
+        <div class="image-zoom-hint">Click or press Esc to close</div>
+    </div>
+
+    <div class="keyboard-hint" contenteditable="false">Use arrow keys or mouse wheel to navigate</div>
+
+    <script>
+        class SlidePresentation {
+            constructor() {
+                this.slides = document.querySelectorAll('.slide');
+                this.dots = document.querySelector('.nav-dots');
+                this.current = 0;
+                this.lastWheelAt = 0;
+                this.setupKeyboard();
+                this.setupWheel();
+                this.setupImageZoom();
+                this.setupDots();
+                this.setupInitialHash();
+                this.hideHintOnScroll();
+            }
+            setupObserver() {
+            }
+            setupKeyboard() {
+                window.addEventListener('keydown', e => {
+                    if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') {
+                        e.preventDefault(); this.go(this.current + 1);
+                    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+                        e.preventDefault(); this.go(this.current - 1);
+                    }
+                });
+            }
+            setupWheel() {
+                window.addEventListener('wheel', e => {
+                    if (document.documentElement.classList.contains('is-mobile')) return;
+                    const dominantDelta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+                    if (Math.abs(dominantDelta) < 8) return;
+                    e.preventDefault();
+
+                    const now = Date.now();
+                    if (now - this.lastWheelAt < 650) return;
+                    this.lastWheelAt = now;
+                    this.go(this.current + (dominantDelta > 0 ? 1 : -1));
+                }, { passive: false });
+            }
+            setupImageZoom() {
+                const zoom = document.getElementById('image-zoom');
+                const trigger = document.querySelector('.zoomable-image');
+                if (!zoom || !trigger) return;
+
+                const close = () => {
+                    zoom.classList.remove('open');
+                    zoom.setAttribute('aria-hidden', 'true');
+                };
+                const open = () => {
+                    zoom.classList.add('open');
+                    zoom.setAttribute('aria-hidden', 'false');
+                };
+
+                trigger.addEventListener('click', open);
+                zoom.addEventListener('click', close);
+                window.addEventListener('keydown', e => {
+                    if (e.key === 'Escape') close();
+                });
+            }
+            setupDots() {
+                this.slides.forEach((s, i) => {
+                    const dot = document.createElement('div');
+                    dot.className = 'dot';
+                    dot.onclick = () => this.go(i);
+                    this.dots.appendChild(dot);
+                });
+                this.updateDots();
+            }
+            updateDots() {
+                this.dots.querySelectorAll('.dot').forEach((d, i) => {
+                    d.classList.toggle('active', i === this.current);
+                });
+            }
+            go(i) {
+                if (i >= 0 && i < this.slides.length) {
+                    this.slides.forEach((slide, index) => {
+                        slide.classList.toggle('active', index === i);
+                        slide.classList.toggle('visible', index === i);
+                    });
+                    this.current = i;
+                    this.updateDots();
+                    if (this.slides[i].id) history.replaceState(null, '', `#${this.slides[i].id}`);
+                }
+            }
+            setupInitialHash() {
+                if (!window.location.hash) {
+                    this.go(0);
+                    return;
+                }
+                const target = document.querySelector(window.location.hash);
+                if (!target) {
+                    this.go(0);
+                    return;
+                }
+                const index = [...this.slides].indexOf(target);
+                this.go(index < 0 ? 0 : index);
+            }
+            hideHintOnScroll() {
+                const hint = document.querySelector('.keyboard-hint');
+                if (!hint) return;
+                let hidden = false;
+                window.addEventListener('scroll', () => {
+                    if (!hidden && window.scrollY > 50) {
+                        hint.style.opacity = '0';
+                        hidden = true;
+                    }
+                });
+            }
+        }
+        class ScaleController {
+            constructor(refWidth = 1280, refHeight = 720) {
+                this.refW = refWidth;
+                this.refH = refHeight;
+                this.isMobile = /iPhone|iPod|Android.*Mobile|BlackBerry|IEMobile|Opera Mini|webOS/i.test(navigator.userAgent);
+                if (this.isMobile) document.documentElement.classList.add('is-mobile');
+                this.slides = document.querySelectorAll('.slide');
+                this.inners = document.querySelectorAll('.slide-inner');
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+                window.addEventListener('orientationchange', () => this.resize());
+            }
+            resize() {
+                if (this.isMobile) {
+                    const s = window.innerWidth / this.refW;
+                    const scaledH = this.refH * s;
+                    this.inners.forEach(inner => { inner.style.transform = `scale(${s})`; });
+                    this.slides.forEach(slide => { slide.style.height = `${scaledH}px`; });
+                    return;
+                }
+                const s = Math.min(window.innerWidth / this.refW, window.innerHeight / this.refH);
+                this.inners.forEach(inner => { inner.style.transform = `scale(${s})`; });
+            }
+        }
+        new SlidePresentation();
+        new ScaleController();
+    </script>
+</body>
+</html>
